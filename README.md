@@ -8,37 +8,53 @@ Official PyTorch implementation of **"Zero-shot Diffusive Image Restoration with
 
 DPGTL is a zero-shot image restoration framework that uses pretrained diffusion
 models as image priors and enforces consistency with the observed degraded
-measurement during sampling. It supports multiple inverse imaging problems in a
-unified framework without task-specific training or fine-tuning.
+measurement during sampling. The main experiments focus on colorization,
+compressed sensing, Gaussian deblurring, and noisy compressed sensing, without
+task-specific training or fine-tuning. The implementation also retains other
+DDNM restoration operators for broader evaluation and further research.
 
-> The paper link：https://www.sciencedirect.com/science/article/abs/pii/S0165168426002197
+> **Paper:** [ScienceDirect](https://www.sciencedirect.com/science/article/abs/pii/S0165168426002197)
 
 ## Highlights
 
 - **Zero-shot restoration:** no task-specific training or fine-tuning is required.
 - **Consistency-guided sampling:** restored images are constrained by the input
   measurement and its degradation model.
-- **Unified interface:** the same entry point supports several image restoration
-  tasks and noise settings.
+- **Main evaluation tasks:** colorization, compressed sensing, Gaussian
+  deblurring, and noisy compressed sensing.
 - **Flexible operators:** both an SVD-based implementation and a simplified
   operator-based implementation are provided.
 - **Evaluation included:** PSNR, SSIM, and LPIPS are reported by the evaluation
   pipeline.
 
-## Supported Tasks
+## Main Evaluated Tasks
+
+The paper reports quantitative and qualitative results for the following four
+experimental settings:
+
+| Task | Experimental setting | Command-line arguments |
+| --- | --- | --- |
+| Colorization | Noise-free measurement | `--deg colorization` |
+| Compressed sensing | Noise-free measurement | `--deg cs_walshhadamard` or `--deg cs_blockbased` |
+| Gaussian deblurring | Gaussian blur kernel | `--deg deblur_gauss` |
+| Noisy compressed sensing | Compressed measurement with additive noise | `--deg cs_walshhadamard --sigma_y LEVEL --add_noise` |
+
+## Additional Evaluated Tasks
+
+We also conducted preliminary experiments on other restoration tasks inherited
+from DDNM. The proposed method improves the restoration results on these tasks,
+although the gains are generally smaller than those observed on the four main
+evaluation settings. These interfaces are retained for completeness and further
+research.
 
 | Task | `--deg` value | Main parameter |
 | --- | --- | --- |
 | Super-resolution (average pooling) | `sr_averagepooling` | `--deg_scale` |
 | Super-resolution (bicubic) | `sr_bicubic` | `--deg_scale` |
 | Denoising | `denoising` | `--sigma_y` |
-| Colorization | `colorization` | — |
 | Inpainting | `inpainting` | mask in `exp/inp_masks/` |
 | Uniform deblurring | `deblur_uni` | — |
-| Gaussian deblurring | `deblur_gauss` | — |
 | Anisotropic deblurring | `deblur_aniso` | — |
-| Walsh–Hadamard compressed sensing | `cs_walshhadamard` | `--deg_scale` |
-| Block-based compressed sensing | `cs_blockbased` | `--deg_scale` |
 | Old-photo restoration | `mask_color_sr` | `--deg_scale`, `--sigma_y` |
 | User-defined degradation | `diy` | edit the operator in `guided_diffusion/diffusion.py` |
 
@@ -139,54 +155,68 @@ are responsible for complying with the licenses and terms of their datasets.
 
 ## Quick Start
 
-### Face image super-resolution
+The examples below correspond to the four main experimental settings. Replace
+`imagenet` with the name of your input directory under `exp/datasets/` when
+using your own data.
 
-Run 4× average-pooling super-resolution with the CelebA-HQ diffusion prior:
+### Colorization
 
 ```bash
-python main.py --ni --simplified \
-    --config celeba_hq.yml \
-    --path_y celeba_hq \
+python main.py --ni \
+    --config imagenet_256.yml \
+    --path_y imagenet \
     --eta 0.85 \
-    --deg sr_averagepooling \
-    --deg_scale 4 \
+    --deg colorization \
     --sigma_y 0 \
-    -i demo_sr4
+    -i imagenet_colorization
 ```
 
 Results are written to:
 
 ```text
-exp/image_samples/demo_sr4/
+exp/image_samples/imagenet_colorization/
 ```
 
-### General image super-resolution
-
-```bash
-python main.py --ni --simplified \
-    --config imagenet_256.yml \
-    --path_y imagenet \
-    --eta 0.85 \
-    --deg sr_averagepooling \
-    --deg_scale 4 \
-    --sigma_y 0 \
-    -i imagenet_sr4
-```
-
-### Noisy restoration
-
-Use `--add_noise` when the program should synthesize noisy measurements:
+### Compressed sensing
 
 ```bash
 python main.py --ni \
-    --config celeba_hq.yml \
-    --path_y celeba_hq \
+    --config imagenet_256.yml \
+    --path_y imagenet \
     --eta 0.85 \
-    --deg sr_averagepooling \
-    --deg_scale 4 \
-    --sigma_y 0.1 \
+    --deg cs_walshhadamard \
+    --deg_scale 0.25 \
+    --sigma_y 0 \
+    -i imagenet_cs_wh_025
+```
+
+### Gaussian deblurring
+
+```bash
+python main.py --ni \
+    --config imagenet_256.yml \
+    --path_y imagenet \
+    --eta 0.85 \
+    --deg deblur_gauss \
+    --sigma_y 0 \
+    -i imagenet_deblur_gauss
+```
+
+### Noisy compressed sensing
+
+Use `--add_noise` to synthesize measurement noise. The following example uses a
+noise level of `0.2`; change it to match the setting being evaluated.
+
+```bash
+python main.py --ni \
+    --config imagenet_256.yml \
+    --path_y imagenet \
+    --eta 0.85 \
+    --deg cs_walshhadamard \
+    --deg_scale 0.25 \
+    --sigma_y 0.2 \
     --add_noise \
-    -i celeba_sr4_noisy
+    -i imagenet_cs_wh_025_noisy
 ```
 
 ## Command-Line Options
@@ -228,15 +258,19 @@ time_travel:
 
 ## Reproducing the Experiments
 
-Prepare the CelebA-HQ and ImageNet evaluation data under `exp/datasets/`, then
-run:
+Prepare the CelebA-HQ and ImageNet evaluation data under `exp/datasets/`. The
+main paper experiments cover colorization, compressed sensing, Gaussian
+deblurring, and noisy compressed sensing. The evaluation script also retains
+additional DDNM-compatible experiments:
 
 ```bash
 bash evaluation.sh
 ```
 
-The script contains commands for super-resolution, deblurring, colorization,
-compressed sensing, and inpainting. Adjust `sampling.batch_size` and the
+Use the task-specific commands and the same configuration, noise level, sampling
+ratio, and random seed reported in the paper when reproducing its quantitative
+results. Other commands in `evaluation.sh` are supplementary experiments rather
+than the main evaluation settings. Adjust `sampling.batch_size` and the
 time-travel parameters in the corresponding configuration when memory or runtime
 is limited.
 
@@ -286,4 +320,3 @@ Parts of `hq_demo/` contain upstream code marked as **CC BY-NC-SA 4.0** and for
 academic research use only. Those files remain subject to their own copyright
 headers and license terms. Third-party pretrained models and datasets are also
 subject to their respective licenses and terms of use.
-
