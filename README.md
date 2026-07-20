@@ -11,8 +11,7 @@ models as image priors and enforces consistency with the observed degraded
 measurement during sampling. It supports multiple inverse imaging problems in a
 unified framework without task-specific training or fine-tuning.
 
-> The paper link, author information, method overview, and BibTeX entry will be
-> added after the paper is publicly available.
+> The paper link：https://www.sciencedirect.com/science/article/abs/pii/S0165168426002197
 
 ## Highlights
 
